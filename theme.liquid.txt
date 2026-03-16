@@ -1,0 +1,5 @@
+add this code in the end of theme.liquid
+<div id="wishlist-icons"  data-add="{{ 'icon-heart.svg' | asset_url }}"
+     data-remove="{{ 'icon-info.svg' | asset_url }}" 
+     style="display:none;"></div>
+    <script src="{{ 'wishlist.js' | asset_url }}" defer="defer"></script>

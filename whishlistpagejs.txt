@@ -1,0 +1,137 @@
+
+const wishlistGrid = document.querySelector('.onhow-wishlist-grid');
+const emptyMessage = document.querySelector('.onhow-wishlist-empty');
+
+function renderWishlist() {
+  const storageKey = 'onhow-wishlist';
+  const wishlistItems = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+  if (wishlistItems.length === 0) {
+    wishlistGrid.style.display = 'none';
+    emptyMessage.style.display = 'block';
+    return;
+  }
+
+  wishlistGrid.style.display = 'grid';
+  emptyMessage.style.display = 'none';
+
+  const itemsHTML = wishlistItems
+    .map((item) => `<div class="onhow-wishlist-item" data-product-title="${item.title}" data-product-url="${item.url}">
+      <button class="onhow-wishlist-add-to-cart" aria-label="Add to cart">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" class="icon icon-cart" viewBox="0 0 40 40">
+          <path fill="currentColor" fill-rule="evenodd" d="M20.5 6.5a4.75 4.75 0 0 0-4.75 4.75v.56h-3.16l-.77 11.6a5 5 0 0 0 4.99 5.34h7.38a5 5 0 0 0 4.99-5.33l-.77-11.6h-3.16v-.57A4.75 4.75 0 0 0 20.5 6.5m3.75 5.31v-.56a3.75 3.75 0 1 0-7.5 0v.56zm-7.5 1h7.5v.56a3.75 3.75 0 1 1-7.5 0zm-1 0v.56a4.75 4.75 0 1 0 9.5 0v-.56h2.22l.71 10.67a4 4 0 0 1-3.99 4.27h-7.38a4 4 0 0 1-4-4.27l.72-10.67z"/>
+        </svg>
+        <div class="loading-overlay__spinner">
+          <svg aria-hidden="true" focusable="false" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+            <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+          </svg>
+        </div>
+      </button>
+      
+      <button class="onhow-wishlist-remove" aria-label="Remove from wishlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+      
+      <a href="${item.url}" class="onhow-wishlist-image">
+        <img src="${item.image}" alt="${item.title}">
+      </a>
+      <div class="onhow-wishlist-content">
+        <h3 class="onhow-wishlist-title">
+          <a href="${item.url}">${item.title}</a>
+        </h3>
+        <p class="onhow-wishlist-price">${item.price}</p>
+        <div class="onhow-wishlist-actions">
+          <a href="${item.url}" class="onhow-wishlist-view">View Product</a>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  wishlistGrid.innerHTML = itemsHTML;
+
+  document.querySelectorAll('.onhow-wishlist-remove').forEach((button) => {
+    button.addEventListener('click', function () {
+      const item = this.closest('.onhow-wishlist-item');
+      const productUrl = item.dataset.productUrl;
+      removeFromWishlist(productUrl);
+    });
+  });
+
+  document.querySelectorAll('.onhow-wishlist-add-to-cart').forEach((button) => {
+    button.addEventListener('click', function () {
+      const item = this.closest('.onhow-wishlist-item');
+      const productUrl = item.dataset.productUrl;
+      addToCart(this, productUrl);
+    });
+  });
+}
+
+function removeFromWishlist(productUrl) {
+  const storageKey = 'onhow-wishlist'; // FIX: define storage key
+
+  let wishlistItems = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+  wishlistItems = wishlistItems.filter((item) => item.url !== productUrl);
+
+  localStorage.setItem(storageKey, JSON.stringify(wishlistItems));
+
+  renderWishlist();
+
+  if (window.onhowWishlist && typeof window.onhowWishlist.updateWishlistCount === 'function') {
+    window.onhowWishlist.updateWishlistCount();
+  }
+}
+
+function addToCart(button, productUrl) {
+  button.classList.add('loading');
+  button.setAttribute('aria-disabled', true);
+
+  fetch(productUrl)
+    .then((response) => response.text())
+    .then((html) => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      const form = doc.querySelector('form[action="/cart/add"]');
+      if (!form) throw new Error('Add to cart form not found');
+
+      const formData = new FormData(form);
+
+      return fetch('/cart/add.js', {
+        method: 'POST',
+        body: formData,
+      });
+    })
+    .then((response) => response.json())
+    .then((data) => {
+      if (typeof window.fetchCartUpdates === 'function') {
+        window.fetchCartUpdates();
+      } else {
+        const cartDrawer = document.querySelector('cart-drawer');
+        if (cartDrawer) cartDrawer.open();
+
+        const cartNotification = document.querySelector('cart-notification');
+        if (cartNotification) cartNotification.renderContents(data);
+      }
+
+      button.classList.add('success');
+      setTimeout(() => {
+        button.classList.remove('success');
+      }, 1500);
+    })
+    .catch((error) => {
+      console.error('Error adding product to cart:', error);
+      button.classList.add('error');
+      setTimeout(() => {
+        button.classList.remove('error');
+      }, 1500);
+    })
+    .finally(() => {
+      button.classList.remove('loading');
+      button.removeAttribute('aria-disabled');
+    });
+}
+
+renderWishlist();

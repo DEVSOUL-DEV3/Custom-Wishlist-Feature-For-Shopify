@@ -1,0 +1,156 @@
+//create a file in assest with the name of whishlist.js 
+
+function showToast({ type = "add", productTitle = "" }) {
+  const removeWishlistIcon = "{{ 'Remove-wishlist.svg' | asset_url }}";
+  let container = document.getElementById("onhow-toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "onhow-toast-container";
+    document.body.appendChild(container);
+  }
+
+  const icons = document.getElementById('wishlist-icons').dataset;
+
+  let iconHTML = '';
+  if (type === 'add') {
+    iconHTML = `<img src="${icons.add}" alt="Add" class="toast-icon toast-add-icon">`;
+  } else if (type === 'remove') {
+    iconHTML = `<img src="${icons.remove}" alt="Remove" class="toast-icon">`;
+  }
+  // Create toast element
+  const toast = document.createElement("div");
+  toast.className = `onhow-toast toast-${type}`;
+  toast.innerHTML = `
+    ${iconHTML}
+    <span class="onhow-toast-text">
+      <span class="onhow-toast-title">${type === "add" ? "Added to Wishlist" : "Removed from Wishlist"}</span>
+      ${productTitle ? `<span class="onhow-toast-subtitle">${productTitle}</span>` : ""}
+    </span>
+  `;
+
+  container.appendChild(toast);
+
+  // Show animation
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add("toast-show"));
+  });
+
+  // Hide and remove after 2.8s
+  setTimeout(() => {
+    toast.classList.add("toast-hide");
+    toast.classList.remove("toast-show");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  }, 2800);
+}
+
+
+
+
+
+function updateWishlistCounter() {
+  let wishlist = JSON.parse(localStorage.getItem("onhow-wishlist")) || [];
+  let count = wishlist.length;
+
+  document.querySelectorAll(".iwish-counter").forEach(function(counter) {
+
+    counter.querySelector('span').textContent = count;
+
+    if (count === 0) {
+      counter.style.visibility = "hidden";
+    }
+    else{
+      counter.style.visibility = "visible";
+    }
+  });
+}
+
+class OnhowWishlist {
+  constructor() {
+    this.storageKey = "onhow-wishlist";
+    this.init();
+  }
+
+  getWishlist() {
+    return JSON.parse(localStorage.getItem(this.storageKey)) || [];
+  }
+
+  setWishlist(items) {
+    localStorage.setItem(this.storageKey, JSON.stringify(items));
+  }
+
+  init() {
+    document.addEventListener("click", (e) => {
+      const button = e.target.closest(".onhow-wishlist-toggle");
+      if (!button) return;
+
+      e.preventDefault();
+      this.toggleProduct(button);
+    });
+
+    this.updateButtons();
+    updateWishlistCounter();
+  }
+
+  toggleProduct(button) {
+    const productData = {
+      title: button.dataset.productTitle,
+      image: button.dataset.productImg,
+      price: button.dataset.productPrice,
+      url: button.dataset.productUrl
+    };
+
+    let wishlist = this.getWishlist();
+
+    const index = wishlist.findIndex(
+      item => item.url === productData.url
+    );
+
+
+    if (index === -1) {
+      wishlist.push(productData);
+      button.classList.add("onhow-in-wishlist");
+      showToast({ type: "add", productTitle: productData.title });
+
+    } else {
+      wishlist.splice(index, 1);
+      button.classList.remove("onhow-in-wishlist");
+      showToast({ type: "remove", productTitle: productData.title });
+
+    }
+
+    this.setWishlist(wishlist);
+
+    // update counter instantly
+    updateWishlistCounter();
+  }
+
+  updateButtons() {
+    const wishlist = this.getWishlist();
+    const buttons = document.querySelectorAll(".onhow-wishlist-toggle");
+
+    buttons.forEach(button => {
+      const title = button.dataset.productTitle;
+
+const exists = wishlist.some(item => item.url === button.dataset.productUrl);
+      button.classList.toggle("onhow-in-wishlist", exists);
+    });
+  }
+}
+
+// Add this at the end of your OnhowWishlist class
+window.onhowWishlist = {
+  updateWishlistCount: function() {
+    const wishlist = JSON.parse(localStorage.getItem('onhow-wishlist') || '[]');
+    const count = wishlist.length;
+
+    document.querySelectorAll('.iwish-counter').forEach(counter => {
+      counter.textContent = count;
+      counter.style.visibility = count === 0 ? 'hidden' : 'visible';
+    });
+  }
+};
+
+document.addEventListener("DOMContentLoaded", function () {
+  new OnhowWishlist();
+  updateWishlistCounter();
+});
